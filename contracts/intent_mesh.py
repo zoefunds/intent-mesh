@@ -51,13 +51,13 @@ class IntentMesh(gl.Contract):
     paused: bool
     next_manifest_id: u256
     next_request_id: u256
-    manifests: TreeMap[u256, str]
+    manifests: TreeMap[u256, Dict[str, Any]]
     latest_version: TreeMap[str, u256]
-    requests: TreeMap[u256, str]
+    requests: TreeMap[u256, Dict[str, Any]]
     provider_manifests: TreeMap[Address, DynArray[u256]]
     consumer_requests: TreeMap[Address, DynArray[u256]]
     manifest_history: TreeMap[str, DynArray[u256]]
-    policy_registry: TreeMap[str, str]
+    policy_registry: TreeMap[str, Dict[str, Any]]
 
     def __init__(self):
         self.owner = gl.message.sender_address
