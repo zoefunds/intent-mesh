@@ -347,11 +347,16 @@ class IntentMesh(gl.Contract):
         """Return a stable, bounded semantic result from validator agreement."""
         def evaluate() -> Dict[str, Any]:
             prompt = self._build_prompt(manifest, request, policy)
-            raw = gl.llm.infer(prompt)
+            raw = gl.nondet.exec_prompt(prompt)
             normalized = self._normalize_llm_result(raw)
             return normalized
 
-        return gl.eq_principle.prompt_comparative(evaluate)
+        return gl.eq_principle.prompt_comparative(
+            evaluate,
+            principle="The verdict must match exactly. The score may differ by at most 5 points. "
+            "Reason codes must describe the same material compatibility decision, and the "
+            "evidence digest must be a valid 64-character hexadecimal string.",
+        )
 
     def _build_prompt(self, manifest: Dict[str, Any], request: Dict[str, Any], policy: Dict[str, Any]) -> str:
         return (
