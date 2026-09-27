@@ -24,6 +24,18 @@ VERDICT_REJECT = "reject"
 VERDICT_REVIEW = "review"
 
 
+def _compat_require(condition: bool, message: str):
+    """v0.2.16-compatible replacement for newer gl.require helpers."""
+    if not condition:
+        raise gl.vm.UserError(message)
+
+
+# Some newer SDKs expose gl.require, while the pinned Studionet v0.2.16
+# runner does not. Install the compatibility shim only when needed.
+if not hasattr(gl, "require"):
+    gl.require = _compat_require
+
+
 class IntentMesh(gl.Contract):
     """Registry, evaluator, and audit log for semantic capability matching."""
 
