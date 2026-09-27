@@ -1,0 +1,4 @@
+genlayer-py
+genlayer-test
+genvm-linter
+pytest>=8
