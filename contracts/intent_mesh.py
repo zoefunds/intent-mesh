@@ -414,7 +414,7 @@ class IntentMesh(gl.Contract):
         return result
 
     def _make_strings(self, values: List[str]) -> DynArray[str]:
-        result = gl.storage.inmem_allocate(DynArray, str)
+        result = gl.storage.inmem_allocate(DynArray[str], [])
         for value in values:
             result.append(value)
         return result
