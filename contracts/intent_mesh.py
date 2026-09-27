@@ -8,6 +8,7 @@ small normalized verdict; the contract records its digest and reason codes.
 """
 
 from typing import Any, Dict, List, Tuple
+from datetime import datetime, timezone
 
 from genlayer import *
 
@@ -34,6 +35,13 @@ def _compat_require(condition: bool, message: str):
 # runner does not. Install the compatibility shim only when needed.
 if not hasattr(gl, "require"):
     gl.require = _compat_require
+
+
+def _transaction_timestamp() -> u256:
+    """Read the v0.2.16 transaction datetime as a unix timestamp."""
+    raw = gl.message_raw["datetime"]
+    normalized = raw.replace("Z", "+00:00")
+    return u256(int(datetime.fromisoformat(normalized).replace(tzinfo=timezone.utc).timestamp()))
 
 
 class IntentMesh(gl.Contract):
@@ -134,7 +142,7 @@ class IntentMesh(gl.Contract):
             "constraints": self._copy_strings(constraints),
             "expires_at": expires_at,
             "status": STATUS_ACTIVE,
-            "created_at": gl.block.timestamp,
+            "created_at": _transaction_timestamp(),
             "manifest_digest": self._manifest_digest(capability_id, version, summary, inputs, outputs, constraints),
         }
         self.manifests[manifest_id] = record
@@ -160,7 +168,7 @@ class IntentMesh(gl.Contract):
         gl.require(record["status"] == STATUS_ACTIVE, "manifest not active")
         record["status"] = STATUS_REVOKED
         record["revocation_reason"] = reason
-        record["revoked_at"] = gl.block.timestamp
+        record["revoked_at"] = _transaction_timestamp()
         self.manifests[manifest_id] = record
 
     @gl.public.write
@@ -169,7 +177,7 @@ class IntentMesh(gl.Contract):
         gl.require(self.manifests.contains(manifest_id), "unknown manifest")
         record = self.manifests[manifest_id]
         gl.require(record["status"] == STATUS_ACTIVE, "manifest not active")
-        gl.require(record["expires_at"] > 0 and gl.block.timestamp >= record["expires_at"], "not expired")
+        gl.require(record["expires_at"] > 0 and _transaction_timestamp() >= record["expires_at"], "not expired")
         record["status"] = STATUS_EXPIRED
         self.manifests[manifest_id] = record
 
@@ -208,8 +216,8 @@ class IntentMesh(gl.Contract):
         gl.require(self.manifests.contains(manifest_id), "unknown manifest")
         manifest = self.manifests[manifest_id]
         gl.require(manifest["status"] == STATUS_ACTIVE, "manifest inactive")
-        gl.require(manifest["expires_at"] == 0 or gl.block.timestamp < manifest["expires_at"], "manifest expired")
-        gl.require(deadline == 0 or deadline > gl.block.timestamp, "deadline passed")
+        gl.require(manifest["expires_at"] == 0 or _transaction_timestamp() < manifest["expires_at"], "manifest expired")
+        gl.require(deadline == 0 or deadline > _transaction_timestamp(), "deadline passed")
         request_id = self.next_request_id
         request = {
             "id": request_id,
@@ -224,7 +232,7 @@ class IntentMesh(gl.Contract):
             "score": 0,
             "reason_codes": [],
             "evidence_digest": "",
-            "created_at": gl.block.timestamp,
+            "created_at": _transaction_timestamp(),
             "resolved_at": 0,
         }
         self.requests[request_id] = request
@@ -240,7 +248,7 @@ class IntentMesh(gl.Contract):
         gl.require(self.requests.contains(request_id), "unknown request")
         request = self.requests[request_id]
         gl.require(request["status"] == "pending", "request resolved")
-        gl.require(request["deadline"] == 0 or gl.block.timestamp <= request["deadline"], "request expired")
+        gl.require(request["deadline"] == 0 or _transaction_timestamp() <= request["deadline"], "request expired")
         manifest = self.manifests[request["manifest_id"]]
         policy = self.policy_registry[request["policy_id"]]
         result = self._semantic_evaluation(manifest, request, policy)
@@ -249,7 +257,7 @@ class IntentMesh(gl.Contract):
         request["score"] = result["score"]
         request["reason_codes"] = result["reason_codes"]
         request["evidence_digest"] = result["evidence_digest"]
-        request["resolved_at"] = gl.block.timestamp
+        request["resolved_at"] = _transaction_timestamp()
         self.requests[request_id] = request
         return result["verdict"]
 
@@ -261,7 +269,7 @@ class IntentMesh(gl.Contract):
         gl.require(request["consumer"] == gl.message.sender_address, "not consumer")
         gl.require(request["status"] == "pending", "request resolved")
         request["status"] = "cancelled"
-        request["resolved_at"] = gl.block.timestamp
+        request["resolved_at"] = _transaction_timestamp()
         self.requests[request_id] = request
 
     @gl.public.write
@@ -270,9 +278,9 @@ class IntentMesh(gl.Contract):
         gl.require(self.requests.contains(request_id), "unknown request")
         request = self.requests[request_id]
         gl.require(request["status"] == "pending", "request resolved")
-        gl.require(request["deadline"] > 0 and gl.block.timestamp > request["deadline"], "not expired")
+        gl.require(request["deadline"] > 0 and _transaction_timestamp() > request["deadline"], "not expired")
         request["status"] = "expired"
-        request["resolved_at"] = gl.block.timestamp
+        request["resolved_at"] = _transaction_timestamp()
         self.requests[request_id] = request
 
     @gl.public.view
@@ -342,7 +350,7 @@ class IntentMesh(gl.Contract):
         self._check_text(summary, "summary")
         gl.require(version > 0, "version must be positive")
         gl.require(len(inputs) <= MAX_LIST and len(outputs) <= MAX_LIST and len(constraints) <= MAX_LIST, "list too long")
-        gl.require(expires_at == 0 or expires_at > gl.block.timestamp, "expiry must be future")
+        gl.require(expires_at == 0 or expires_at > _transaction_timestamp(), "expiry must be future")
         self._check_list(inputs, "inputs")
         self._check_list(outputs, "outputs")
         self._check_list(constraints, "constraints")
@@ -439,7 +447,7 @@ class IntentMesh(gl.Contract):
         item = self.manifests[manifest_id]
         if item["status"] != STATUS_ACTIVE:
             return False
-        return item["expires_at"] == 0 or gl.block.timestamp < item["expires_at"]
+        return item["expires_at"] == 0 or _transaction_timestamp() < item["expires_at"]
 
     def _is_request_final(self, request_id: u256) -> bool:
         """A tiny helper used by integrations that want fail-closed reads."""
