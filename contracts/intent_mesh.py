@@ -109,14 +109,14 @@ class IntentMesh(gl.Contract):
     @gl.public.write
     def disable_policy(self, policy_id: str):
         self._only_owner()
-        gl.require(self.policy_registry.contains(policy_id), "unknown policy")
+        gl.require(policy_id in self.policy_registry, "unknown policy")
         current = self.policy_registry[policy_id]
         current["enabled"] = False
         self.policy_registry[policy_id] = current
 
     @gl.public.view
     def get_policy(self, policy_id: str) -> Dict[str, Any]:
-        gl.require(self.policy_registry.contains(policy_id), "unknown policy")
+        gl.require(policy_id in self.policy_registry, "unknown policy")
         return self.policy_registry[policy_id]
 
     # ------------------------------------------------------------------
@@ -128,7 +128,7 @@ class IntentMesh(gl.Contract):
         self._not_paused()
         self._validate_manifest(capability_id, version, summary, inputs, outputs, constraints, expires_at)
         key = self._version_key(capability_id, version)
-        gl.require(not self.manifests.contains(self.next_manifest_id), "id collision")
+        gl.require(self.next_manifest_id not in self.manifests, "id collision")
         gl.require(not self._history_contains(capability_id, self.next_manifest_id), "duplicate version")
         manifest_id = self.next_manifest_id
         record = {
@@ -162,7 +162,7 @@ class IntentMesh(gl.Contract):
     def revoke_manifest(self, manifest_id: u256, reason: str):
         self._not_paused()
         self._check_text(reason, "reason")
-        gl.require(self.manifests.contains(manifest_id), "unknown manifest")
+        gl.require(manifest_id in self.manifests, "unknown manifest")
         record = self.manifests[manifest_id]
         gl.require(record["provider"] == gl.message.sender_address or gl.message.sender_address == self.owner, "not authorized")
         gl.require(record["status"] == STATUS_ACTIVE, "manifest not active")
@@ -174,7 +174,7 @@ class IntentMesh(gl.Contract):
     @gl.public.write
     def expire_manifest(self, manifest_id: u256):
         self._not_paused()
-        gl.require(self.manifests.contains(manifest_id), "unknown manifest")
+        gl.require(manifest_id in self.manifests, "unknown manifest")
         record = self.manifests[manifest_id]
         gl.require(record["status"] == STATUS_ACTIVE, "manifest not active")
         gl.require(record["expires_at"] > 0 and _transaction_timestamp() >= record["expires_at"], "not expired")
@@ -183,13 +183,13 @@ class IntentMesh(gl.Contract):
 
     @gl.public.view
     def get_manifest(self, manifest_id: u256) -> Dict[str, Any]:
-        gl.require(self.manifests.contains(manifest_id), "unknown manifest")
+        gl.require(manifest_id in self.manifests, "unknown manifest")
         return self.manifests[manifest_id]
 
     @gl.public.view
     def get_latest_manifest(self, capability_id: str) -> Dict[str, Any]:
         key = self._latest_key(capability_id)
-        gl.require(self.latest_version.contains(key), "no manifest")
+        gl.require(key in self.latest_version, "no manifest")
         return self.manifests[self.latest_version[key]]
 
     @gl.public.view
@@ -211,9 +211,9 @@ class IntentMesh(gl.Contract):
         self._check_text(context, "context")
         self._check_text(policy_id, "policy_id")
         gl.require(len(self.requests_for(gl.message.sender_address)) < MAX_REQUESTS, "request quota reached")
-        gl.require(self.policy_registry.contains(policy_id), "unknown policy")
+        gl.require(policy_id in self.policy_registry, "unknown policy")
         gl.require(self.policy_registry[policy_id]["enabled"], "policy disabled")
-        gl.require(self.manifests.contains(manifest_id), "unknown manifest")
+        gl.require(manifest_id in self.manifests, "unknown manifest")
         manifest = self.manifests[manifest_id]
         gl.require(manifest["status"] == STATUS_ACTIVE, "manifest inactive")
         gl.require(manifest["expires_at"] == 0 or _transaction_timestamp() < manifest["expires_at"], "manifest expired")
@@ -245,7 +245,7 @@ class IntentMesh(gl.Contract):
     @gl.public.write
     def resolve_match(self, request_id: u256) -> str:
         self._not_paused()
-        gl.require(self.requests.contains(request_id), "unknown request")
+        gl.require(request_id in self.requests, "unknown request")
         request = self.requests[request_id]
         gl.require(request["status"] == "pending", "request resolved")
         gl.require(request["deadline"] == 0 or _transaction_timestamp() <= request["deadline"], "request expired")
@@ -264,7 +264,7 @@ class IntentMesh(gl.Contract):
     @gl.public.write
     def cancel_request(self, request_id: u256):
         self._not_paused()
-        gl.require(self.requests.contains(request_id), "unknown request")
+        gl.require(request_id in self.requests, "unknown request")
         request = self.requests[request_id]
         gl.require(request["consumer"] == gl.message.sender_address, "not consumer")
         gl.require(request["status"] == "pending", "request resolved")
@@ -275,7 +275,7 @@ class IntentMesh(gl.Contract):
     @gl.public.write
     def expire_request(self, request_id: u256):
         self._not_paused()
-        gl.require(self.requests.contains(request_id), "unknown request")
+        gl.require(request_id in self.requests, "unknown request")
         request = self.requests[request_id]
         gl.require(request["status"] == "pending", "request resolved")
         gl.require(request["deadline"] > 0 and _transaction_timestamp() > request["deadline"], "not expired")
@@ -285,7 +285,7 @@ class IntentMesh(gl.Contract):
 
     @gl.public.view
     def get_request(self, request_id: u256) -> Dict[str, Any]:
-        gl.require(self.requests.contains(request_id), "unknown request")
+        gl.require(request_id in self.requests, "unknown request")
         return self.requests[request_id]
 
     @gl.public.view
@@ -294,12 +294,12 @@ class IntentMesh(gl.Contract):
 
     @gl.public.view
     def pending_request(self, request_id: u256) -> bool:
-        gl.require(self.requests.contains(request_id), "unknown request")
+        gl.require(request_id in self.requests, "unknown request")
         return self.requests[request_id]["status"] == "pending"
 
     @gl.public.view
     def can_use(self, request_id: u256) -> bool:
-        gl.require(self.requests.contains(request_id), "unknown request")
+        gl.require(request_id in self.requests, "unknown request")
         request = self.requests[request_id]
         return request["status"] == "resolved" and request["verdict"] == VERDICT_ACCEPT
 
@@ -436,13 +436,13 @@ class IntentMesh(gl.Contract):
 
     def _same_provider(self, manifest_id: u256, provider: Address) -> bool:
         """Return whether an address owns a manifest."""
-        if not self.manifests.contains(manifest_id):
+        if manifest_id not in self.manifests:
             return False
         return self.manifests[manifest_id]["provider"] == provider
 
     def _is_manifest_live(self, manifest_id: u256) -> bool:
         """Check status and time without performing a semantic operation."""
-        if not self.manifests.contains(manifest_id):
+        if manifest_id not in self.manifests:
             return False
         item = self.manifests[manifest_id]
         if item["status"] != STATUS_ACTIVE:
@@ -451,14 +451,14 @@ class IntentMesh(gl.Contract):
 
     def _is_request_final(self, request_id: u256) -> bool:
         """A tiny helper used by integrations that want fail-closed reads."""
-        if not self.requests.contains(request_id):
+        if request_id not in self.requests:
             return False
         status = self.requests[request_id]["status"]
         return status in ("resolved", "cancelled", "expired")
 
     def _request_verdict(self, request_id: u256) -> str:
         """Return a verdict or an empty string for non-final requests."""
-        gl.require(self.requests.contains(request_id), "unknown request")
+        gl.require(request_id in self.requests, "unknown request")
         item = self.requests[request_id]
         if item["status"] != "resolved":
             return ""
@@ -466,7 +466,7 @@ class IntentMesh(gl.Contract):
 
     def _policy_threshold(self, policy_id: str) -> int:
         """Expose the threshold calculation as an auditable seam."""
-        gl.require(self.policy_registry.contains(policy_id), "unknown policy")
+        gl.require(policy_id in self.policy_registry, "unknown policy")
         policy = self.policy_registry[policy_id]
         gl.require(policy["enabled"], "policy disabled")
         return policy["min_score"]
@@ -486,7 +486,7 @@ class IntentMesh(gl.Contract):
 
     def _manifest_has_input(self, manifest_id: u256, name: str) -> bool:
         """Exact input lookup for non-LLM preflight checks."""
-        gl.require(self.manifests.contains(manifest_id), "unknown manifest")
+        gl.require(manifest_id in self.manifests, "unknown manifest")
         for item in self.manifests[manifest_id]["inputs"]:
             if item == name:
                 return True
@@ -494,7 +494,7 @@ class IntentMesh(gl.Contract):
 
     def _manifest_has_output(self, manifest_id: u256, name: str) -> bool:
         """Exact output lookup for non-LLM preflight checks."""
-        gl.require(self.manifests.contains(manifest_id), "unknown manifest")
+        gl.require(manifest_id in self.manifests, "unknown manifest")
         for item in self.manifests[manifest_id]["outputs"]:
             if item == name:
                 return True
@@ -502,7 +502,7 @@ class IntentMesh(gl.Contract):
 
     def _manifest_constraint_count(self, manifest_id: u256) -> int:
         """Return the number of explicit constraints on a manifest."""
-        gl.require(self.manifests.contains(manifest_id), "unknown manifest")
+        gl.require(manifest_id in self.manifests, "unknown manifest")
         return len(self.manifests[manifest_id]["constraints"])
 
     def _safe_context(self, context: str) -> str:
@@ -519,7 +519,7 @@ class IntentMesh(gl.Contract):
 
     def _status_code(self, request_id: u256) -> int:
         """Stable numeric status useful for simple ABI consumers."""
-        gl.require(self.requests.contains(request_id), "unknown request")
+        gl.require(request_id in self.requests, "unknown request")
         status = self.requests[request_id]["status"]
         if status == "pending":
             return 1
