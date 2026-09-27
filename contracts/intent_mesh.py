@@ -382,6 +382,10 @@ class IntentMesh(gl.Contract):
     # ------------------------------------------------------------------
 
     def _seed_default_policies(self):
+        # The real GenVM runner zero-initializes declared storage maps. The
+        # local direct-test shim does not, so provide only that test fallback.
+        if not hasattr(self, "policy_registry"):
+            self.policy_registry = {}
         self.policy_registry["strict"] = PolicyRecord(u256(80), u256(65), True, True, True)
         self.policy_registry["balanced"] = PolicyRecord(u256(65), u256(45), True, False, True)
         self.policy_registry["exploratory"] = PolicyRecord(u256(50), u256(30), False, False, True)
