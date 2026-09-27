@@ -9,6 +9,7 @@ small normalized verdict; the contract records its digest and reason codes.
 
 from typing import Any, Dict, List, Tuple
 from datetime import datetime, timezone
+from dataclasses import dataclass
 
 from genlayer import *
 
@@ -44,6 +45,75 @@ def _transaction_timestamp() -> u256:
     return u256(int(datetime.fromisoformat(normalized).replace(tzinfo=timezone.utc).timestamp()))
 
 
+@allow_storage
+@dataclass
+class ManifestRecord:
+    """Typed persistent manifest record for the v0.2.16 storage engine."""
+    manifest_id: u256
+    capability_id: str
+    version: u256
+    provider: Address
+    summary: str
+    inputs: DynArray[str]
+    outputs: DynArray[str]
+    constraints: DynArray[str]
+    expires_at: u256
+    status: str
+    created_at: u256
+    manifest_digest: str
+    revocation_reason: str
+    revoked_at: u256
+
+    def __getitem__(self, key: str):
+        return getattr(self, key)
+
+    def __setitem__(self, key: str, value):
+        setattr(self, key, value)
+
+
+@allow_storage
+@dataclass
+class RequestRecord:
+    """Typed persistent request record for the v0.2.16 storage engine."""
+    request_id: u256
+    consumer: Address
+    manifest_id: u256
+    intent: str
+    policy_id: str
+    context: str
+    deadline: u256
+    status: str
+    verdict: str
+    score: u256
+    reason_codes: DynArray[str]
+    evidence_digest: str
+    created_at: u256
+    resolved_at: u256
+
+    def __getitem__(self, key: str):
+        return getattr(self, key)
+
+    def __setitem__(self, key: str, value):
+        setattr(self, key, value)
+
+
+@allow_storage
+@dataclass
+class PolicyRecord:
+    """Typed persistent policy record for the v0.2.16 storage engine."""
+    min_score: u256
+    review_band: u256
+    require_inputs: bool
+    require_outputs: bool
+    enabled: bool
+
+    def __getitem__(self, key: str):
+        return getattr(self, key)
+
+    def __setitem__(self, key: str, value):
+        setattr(self, key, value)
+
+
 class IntentMesh(gl.Contract):
     """Registry, evaluator, and audit log for semantic capability matching."""
 
@@ -51,13 +121,13 @@ class IntentMesh(gl.Contract):
     paused: bool
     next_manifest_id: u256
     next_request_id: u256
-    manifests: TreeMap[u256, Dict[str, Any]]
+    manifests: TreeMap[u256, ManifestRecord]
     latest_version: TreeMap[str, u256]
-    requests: TreeMap[u256, Dict[str, Any]]
+    requests: TreeMap[u256, RequestRecord]
     provider_manifests: TreeMap[Address, DynArray[u256]]
     consumer_requests: TreeMap[Address, DynArray[u256]]
     manifest_history: TreeMap[str, DynArray[u256]]
-    policy_registry: TreeMap[str, Dict[str, Any]]
+    policy_registry: TreeMap[str, PolicyRecord]
 
     def __init__(self):
         self.owner = gl.message.sender_address
@@ -67,7 +137,7 @@ class IntentMesh(gl.Contract):
         # GenVM zero-initializes declared TreeMap/DynArray fields. Do not
         # allocate them here: v0.2.16 treats storage collections and ordinary
         # in-memory generic collections as different descriptor types.
-        pass
+        self._seed_default_policies()
 
     # ------------------------------------------------------------------
     # Administrative and protocol configuration
@@ -98,13 +168,7 @@ class IntentMesh(gl.Contract):
         self._check_score(min_score)
         self._check_score(review_band)
         gl.require(review_band <= min_score, "review band must not exceed minimum")
-        self.policy_registry[policy_id] = {
-            "min_score": min_score,
-            "review_band": review_band,
-            "require_inputs": require_inputs,
-            "require_outputs": require_outputs,
-            "enabled": True,
-        }
+        self.policy_registry[policy_id] = PolicyRecord(u256(min_score), u256(review_band), require_inputs, require_outputs, True)
 
     @gl.public.write
     def disable_policy(self, policy_id: str):
@@ -131,20 +195,7 @@ class IntentMesh(gl.Contract):
         gl.require(self.next_manifest_id not in self.manifests, "id collision")
         gl.require(not self._history_contains(capability_id, self.next_manifest_id), "duplicate version")
         manifest_id = self.next_manifest_id
-        record = {
-            "id": manifest_id,
-            "capability_id": capability_id,
-            "version": version,
-            "provider": gl.message.sender_address,
-            "summary": summary,
-            "inputs": self._copy_strings(inputs),
-            "outputs": self._copy_strings(outputs),
-            "constraints": self._copy_strings(constraints),
-            "expires_at": expires_at,
-            "status": STATUS_ACTIVE,
-            "created_at": _transaction_timestamp(),
-            "manifest_digest": self._manifest_digest(capability_id, version, summary, inputs, outputs, constraints),
-        }
+        record = ManifestRecord(manifest_id, capability_id, u256(version), gl.message.sender_address, summary, gl.storage.inmem_allocate(DynArray[str], *inputs), gl.storage.inmem_allocate(DynArray[str], *outputs), gl.storage.inmem_allocate(DynArray[str], *constraints), u256(expires_at), STATUS_ACTIVE, _transaction_timestamp(), self._manifest_digest(capability_id, version, summary, inputs, outputs, constraints), "", u256(0))
         self.manifests[manifest_id] = record
         self.next_manifest_id += 1
         history = self.manifest_history.get(capability_id, [])
@@ -219,22 +270,7 @@ class IntentMesh(gl.Contract):
         gl.require(manifest["expires_at"] == 0 or _transaction_timestamp() < manifest["expires_at"], "manifest expired")
         gl.require(deadline == 0 or deadline > _transaction_timestamp(), "deadline passed")
         request_id = self.next_request_id
-        request = {
-            "id": request_id,
-            "consumer": gl.message.sender_address,
-            "manifest_id": manifest_id,
-            "intent": intent,
-            "policy_id": policy_id,
-            "context": context,
-            "deadline": deadline,
-            "status": "pending",
-            "verdict": "",
-            "score": 0,
-            "reason_codes": [],
-            "evidence_digest": "",
-            "created_at": _transaction_timestamp(),
-            "resolved_at": 0,
-        }
+        request = RequestRecord(request_id, gl.message.sender_address, manifest_id, intent, policy_id, context, u256(deadline), "pending", "", u256(0), gl.storage.inmem_allocate(DynArray[str]), "", _transaction_timestamp(), u256(0))
         self.requests[request_id] = request
         self.next_request_id += 1
         owned = self.consumer_requests.get(gl.message.sender_address, [])
@@ -341,9 +377,9 @@ class IntentMesh(gl.Contract):
     # ------------------------------------------------------------------
 
     def _seed_default_policies(self):
-        self.policy_registry["strict"] = {"min_score": 80, "review_band": 65, "require_inputs": True, "require_outputs": True, "enabled": True}
-        self.policy_registry["balanced"] = {"min_score": 65, "review_band": 45, "require_inputs": True, "require_outputs": False, "enabled": True}
-        self.policy_registry["exploratory"] = {"min_score": 50, "review_band": 30, "require_inputs": False, "require_outputs": False, "enabled": True}
+        self.policy_registry["strict"] = PolicyRecord(u256(80), u256(65), True, True, True)
+        self.policy_registry["balanced"] = PolicyRecord(u256(65), u256(45), True, False, True)
+        self.policy_registry["exploratory"] = PolicyRecord(u256(50), u256(30), False, False, True)
 
     def _validate_manifest(self, capability_id: str, version: int, summary: str, inputs: List[str], outputs: List[str], constraints: List[str], expires_at: int):
         self._check_text(capability_id, "capability_id")
