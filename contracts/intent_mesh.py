@@ -195,7 +195,7 @@ class IntentMesh(gl.Contract):
         gl.require(self.next_manifest_id not in self.manifests, "id collision")
         gl.require(not self._history_contains(capability_id, self.next_manifest_id), "duplicate version")
         manifest_id = self.next_manifest_id
-        record = ManifestRecord(manifest_id, capability_id, u256(version), gl.message.sender_address, summary, gl.storage.inmem_allocate(DynArray[str], *inputs), gl.storage.inmem_allocate(DynArray[str], *outputs), gl.storage.inmem_allocate(DynArray[str], *constraints), u256(expires_at), STATUS_ACTIVE, _transaction_timestamp(), self._manifest_digest(capability_id, version, summary, inputs, outputs, constraints), "", u256(0))
+        record = ManifestRecord(manifest_id, capability_id, u256(version), gl.message.sender_address, summary, self._make_strings(inputs), self._make_strings(outputs), self._make_strings(constraints), u256(expires_at), STATUS_ACTIVE, _transaction_timestamp(), self._manifest_digest(capability_id, version, summary, inputs, outputs, constraints), "", u256(0))
         self.manifests[manifest_id] = record
         self.next_manifest_id += 1
         history = self.manifest_history.get(capability_id, [])
@@ -270,7 +270,7 @@ class IntentMesh(gl.Contract):
         gl.require(manifest["expires_at"] == 0 or _transaction_timestamp() < manifest["expires_at"], "manifest expired")
         gl.require(deadline == 0 or deadline > _transaction_timestamp(), "deadline passed")
         request_id = self.next_request_id
-        request = RequestRecord(request_id, gl.message.sender_address, manifest_id, intent, policy_id, context, u256(deadline), "pending", "", u256(0), gl.storage.inmem_allocate(DynArray[str]), "", _transaction_timestamp(), u256(0))
+        request = RequestRecord(request_id, gl.message.sender_address, manifest_id, intent, policy_id, context, u256(deadline), "pending", "", u256(0), self._make_strings([]), "", _transaction_timestamp(), u256(0))
         self.requests[request_id] = request
         self.next_request_id += 1
         owned = self.consumer_requests.get(gl.message.sender_address, [])
@@ -409,6 +409,12 @@ class IntentMesh(gl.Contract):
 
     def _copy_strings(self, values: List[str]) -> List[str]:
         result: List[str] = []
+        for value in values:
+            result.append(value)
+        return result
+
+    def _make_strings(self, values: List[str]) -> DynArray[str]:
+        result = gl.storage.inmem_allocate(DynArray[str])
         for value in values:
             result.append(value)
         return result
