@@ -22,6 +22,7 @@ if "genlayer" not in sys.modules:
     package.Address = str
     package.TreeMap = dict
     package.DynArray = list
+    package.allow_storage = lambda cls: cls
     package.u256 = int
     sys.modules["genlayer"] = package
     sys.modules["genlayer.gl"] = gl

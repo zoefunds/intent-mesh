@@ -54,9 +54,9 @@ class ManifestRecord:
     version: u256
     provider: Address
     summary: str
-    inputs: DynArray[str]
-    outputs: DynArray[str]
-    constraints: DynArray[str]
+    inputs: str
+    outputs: str
+    constraints: str
     expires_at: u256
     status: str
     created_at: u256
@@ -85,7 +85,7 @@ class RequestRecord:
     status: str
     verdict: str
     score: u256
-    reason_codes: DynArray[str]
+    reason_codes: str
     evidence_digest: str
     created_at: u256
     resolved_at: u256
@@ -291,7 +291,7 @@ class IntentMesh(gl.Contract):
         request["status"] = "resolved"
         request["verdict"] = result["verdict"]
         request["score"] = result["score"]
-        request["reason_codes"] = result["reason_codes"]
+        request["reason_codes"] = "|".join(result["reason_codes"])
         request["evidence_digest"] = result["evidence_digest"]
         request["resolved_at"] = _transaction_timestamp()
         self.requests[request_id] = request
@@ -413,11 +413,13 @@ class IntentMesh(gl.Contract):
             result.append(value)
         return result
 
-    def _make_strings(self, values: List[str]) -> DynArray[str]:
-        result = gl.storage.inmem_allocate(DynArray[str], [])
-        for value in values:
-            result.append(value)
-        return result
+    def _make_strings(self, values: List[str]) -> str:
+        return "|".join(values)
+
+    def _unpack_strings(self, packed: str) -> List[str]:
+        if packed == "":
+            return []
+        return packed.split("|")
 
     def _version_key(self, capability_id: str, version: int) -> str:
         return capability_id + "#" + str(version)
@@ -529,7 +531,7 @@ class IntentMesh(gl.Contract):
     def _manifest_has_input(self, manifest_id: u256, name: str) -> bool:
         """Exact input lookup for non-LLM preflight checks."""
         gl.require(manifest_id in self.manifests, "unknown manifest")
-        for item in self.manifests[manifest_id]["inputs"]:
+        for item in self._unpack_strings(self.manifests[manifest_id]["inputs"]):
             if item == name:
                 return True
         return False
@@ -537,7 +539,7 @@ class IntentMesh(gl.Contract):
     def _manifest_has_output(self, manifest_id: u256, name: str) -> bool:
         """Exact output lookup for non-LLM preflight checks."""
         gl.require(manifest_id in self.manifests, "unknown manifest")
-        for item in self.manifests[manifest_id]["outputs"]:
+        for item in self._unpack_strings(self.manifests[manifest_id]["outputs"]):
             if item == name:
                 return True
         return False
