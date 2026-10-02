@@ -14,7 +14,7 @@ if "genlayer" not in sys.modules:
     gl.Contract = object
     gl.message = types.SimpleNamespace(sender_address="0x0")
     gl.block = types.SimpleNamespace(timestamp=0)
-    gl.eq_principle = types.SimpleNamespace(prompt_comparative=lambda f: f())
+    gl.eq_principle = types.SimpleNamespace(prompt_comparative=lambda f, **kwargs: f())
     gl.llm = types.SimpleNamespace(infer=lambda prompt: {})
     gl.require = lambda condition, message: None
     package = types.ModuleType("genlayer")

@@ -1,0 +1,37 @@
+{
+  "network": "Studionet",
+  "chain_id": 61999,
+  "rpc": "https://studio.genlayer.com/api",
+  "deployer": "0x8d4e752ae688c21ec7c7d4d8a232b5e0700dbf0f",
+  "contract_address": "0x9b9136318D7D6aDe227D7B2C8ae7912C20ee3537",
+  "deployment": {
+    "transaction_hash": "0xecd9791b41c6dadee3a33a2e5a75d42fdf9815803cb02489d624aacf2de4402b",
+    "status": "ACCEPTED",
+    "consensus_result": "MAJORITY_AGREE"
+  },
+  "e2e_tests": [
+    {
+      "name": "publish and read concrete payment-capability manifest",
+      "publish_transaction_hash": "0x333c5441b69e50102b8b7ec1d4c6c67da3280e9965d399ed1d743669acc27cc8",
+      "status": "ACCEPTED",
+      "consensus_result": "MAJORITY_AGREE",
+      "manifest_id": 1,
+      "capability_id": "intentmesh-payment-evidence-v1",
+      "manifest_digest": "023b8256d2304c7a525681e546d89073c0192e176157867892f34bb331fc4ec7"
+    },
+    {
+      "name": "request, validator-consensus resolution, read, and independently reproduce evidence commitment",
+      "request_transaction_hash": "0xa126d0297034977a0c5839807174320d21488404b46563174286da3218896cc7",
+      "resolve_transaction_hash": "0x066d1ad8b6538de9e58d114774055ac70c3081cc9c71beea3c07e86908136085",
+      "status": "ACCEPTED",
+      "consensus_result": "MAJORITY_AGREE",
+      "request_id": 1,
+      "verdict": "review",
+      "score": 0,
+      "reason_codes": ["UNPARSEABLE"],
+      "evidence_digest": "41f641b208285b2a3c87e694b02d0bc7c5c718cd9a9d2e91bdc693da77bdf09d",
+      "independently_recomputed_digest": "41f641b208285b2a3c87e694b02d0bc7c5c718cd9a9d2e91bdc693da77bdf09d",
+      "fixture_note": "The request is explicitly a public, fictional test fixture with no personal, banking, production invoice, or production compliance data."
+    }
+  ]
+}

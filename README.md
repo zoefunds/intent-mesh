@@ -44,11 +44,10 @@ The script aborts unless the RPC reports chain ID `61999`.
 1. A provider registers a manifest with a stable identifier, version, semantic description, required inputs, produced outputs, constraints, and expiry.
 2. A consumer submits an intent request referencing the manifest and a policy.
 3. Validators semantically compare the request and manifest inside an equivalence-principle block.
-4. Only the normalized verdict, score, reason codes, and evidence digest enter shared state.
+4. Consensus selects the normalized verdict, score, and reason codes. The contract then deterministically enforces the configured score band and required manifest fields, and computes the 64-character SHA-256 evidence digest from a length-delimited canonical encoding of the request, policy, manifest commitment and fields, and final evaluation; validators and auditors can reproduce it exactly. Model-provided digests are ignored.
 5. The consumer can accept, reject, or expire a request according to the committed verdict.
 6. Every version and decision remains queryable for composition and audit.
 
 ## Current toolchain record
 
 The repository follows the current official Studionet guidance: Python >= 3.12, `genlayer-py`, `genlayer-test`, and `genvm-linter`. Exact resolved versions should be written to `toolchain.lock.txt` by `scripts/record_toolchain.py` in the environment used for deployment.
-
