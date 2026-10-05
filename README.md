@@ -17,8 +17,10 @@ The hard part is not storing a JSON document. It is deciding whether two human-a
 - Integration test: `tests/integration/test_studionet.py`
 - Target network: Studionet, chain ID `61999`
 - Target RPC: `https://studio.genlayer.com/api`
+- Current deployment: [`0xD1A572B57DbdEAC2d7B09174E62c6585f3F00041`](https://explorer-studio.genlayer.com/address/0xD1A572B57DbdEAC2d7B09174E62c6585f3F00041)
+- Deployment transaction: [`0x29d0e54f546360223951a96dd97f6a5319ae7b907d15b0f2a7cb791a77c55b3b`](https://explorer-studio.genlayer.com/tx/0x29d0e54f546360223951a96dd97f6a5319ae7b907d15b0f2a7cb791a77c55b3b)
 
-The final GitHub repository and live deployment address are intentionally not fabricated. They must be filled by the deployment helper after a real account and target repository are supplied.
+The deployment artifact records the current address, every successful write-method transaction, final state read-backs, and the superseded deployment. See [`review.md`](review.md) for linked Explorer evidence.
 
 ## Quick start
 
@@ -43,11 +45,11 @@ The script aborts unless the RPC reports chain ID `61999`.
 
 1. A provider registers a manifest with a stable identifier, version, semantic description, required inputs, produced outputs, constraints, and expiry.
 2. A consumer submits an intent request referencing the manifest and a policy.
-3. Validators semantically compare the request and manifest inside an equivalence-principle block.
-4. Consensus selects the normalized verdict, score, and reason codes. The contract then deterministically enforces the configured score band and required manifest fields, and computes the 64-character SHA-256 evidence digest from a length-delimited canonical encoding of the request, policy, manifest commitment and fields, and final evaluation; validators and auditors can reproduce it exactly. Model-provided digests are ignored.
-5. The consumer can accept, reject, or expire a request according to the committed verdict.
+3. Each validator normalizes its semantic result and deterministically applies the selected policy before comparative validation. Comparative validation requires exact final-verdict agreement, a maximum five-point score difference, and scores in the same policy band; a disagreement crossing `review_band` or `min_score` is never equivalent.
+4. Consensus selects an already policy-enforced verdict, score, and reason-code result. The contract computes the 64-character SHA-256 evidence digest from a length-delimited canonical encoding of the request, policy, manifest commitment and fields, and final evaluation; validators and auditors can reproduce it exactly. Model-provided digests are ignored.
+5. A pending request can be resolved through validator consensus, cancelled by its consumer, or expired after its deadline.
 6. Every version and decision remains queryable for composition and audit.
 
 ## Current toolchain record
 
-The repository follows the current official Studionet guidance: Python >= 3.12, `genlayer-py`, `genlayer-test`, and `genvm-linter`. Exact resolved versions should be written to `toolchain.lock.txt` by `scripts/record_toolchain.py` in the environment used for deployment.
+The deployed environment used Python 3.14.7, `genlayer-py==0.16.3`, `genlayer-test==0.29.2`, `genvm-linter==0.11.0`, and `pytest==9.0.3`. The exact record is in [`toolchain.lock.txt`](toolchain.lock.txt).

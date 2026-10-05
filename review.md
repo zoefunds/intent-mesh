@@ -1,161 +1,60 @@
-# Evidence-Commitment Remediation Review
+# IntentMesh remediation and live verification
 
-**Date:** 2026-10-02  
-**Contract:** IntentMesh  
-**Deployment network:** GenLayer Studionet, chain ID `61999`
+**Verified:** 2026-10-05  
+**Network:** GenLayer Studionet (`61999`)  
+**Contract:** [`0xD1A572B57DbdEAC2d7B09174E62c6585f3F00041`](https://explorer-studio.genlayer.com/address/0xD1A572B57DbdEAC2d7B09174E62c6585f3F00041)
 
-## Team finding
+## Findings resolved
 
-> The evidence commitment is not bound by validator consensus: any 64-character hexadecimal value can pass, so different validators can accept conflicting digests for the same request. Please compute the digest deterministically from canonical evaluated evidence, or require validators to reproduce and match the exact digest before storing it.
+The model no longer supplies the evidence digest. Validators return only verdict, score, and reason codes. The contract applies deterministic policy and computes SHA-256 over a length-delimited canonical representation of the request, policy, manifest evidence, and final result.
 
-## Finding assessment
+Policy enforcement occurs inside each validator's comparative callback. Under strict policy, score 79 becomes `review` and score 84 remains `accept` before comparison, so exact-verdict comparison rejects them as equivalent. The principle also explicitly says that crossing `review_band` or `min_score` is never equivalent, even within five points.
 
-The finding was valid.
+Seven direct regression tests pass, including the exact 79-versus-84 case. Explorer and CLI source read-back both show this implementation.
 
-Before this remediation, the non-deterministic validator response contained an `evidence_digest` field. The contract normalized that field only by truncating it, while the comparative-consensus instruction only required a valid-looking 64-character hexadecimal value. As a result, different validator outputs could contain different opaque commitments while still being judged semantically compatible. The stored value was therefore not a reproducible commitment to the consensus evaluation.
-
-This was an integrity and auditability problem. An observer could not recompute the stored digest from the request and evaluation, and the digest could not prove that all validators had committed to the same evidence.
-
-## Remediation strategy
-
-The contract now uses the first requested remediation option: it derives the digest deterministically from canonical evaluated evidence after comparative consensus returns.
-
-The model cannot supply the stored evidence commitment. The relevant lifecycle is now:
-
-1. Each validator produces only `verdict`, `score`, and `reason_codes`.
-2. `gl.eq_principle.prompt_comparative` reaches consensus on that normalized evaluation.
-3. Deterministic contract code applies hard policy constraints.
-4. The contract serializes the immutable evaluation inputs and final result using one length-delimited canonical format.
-5. The contract computes a lowercase 64-character SHA-256 digest of that canonical text.
-6. `resolve_match` stores only this calculated digest in the request record.
-
-Because steps 3 through 6 are deterministic contract execution after the consensus result is selected, every validator and any independent auditor can reproduce the exact commitment.
-
-## Code changes
-
-### Removed model-controlled evidence commitments
-
-`_normalize_llm_result` now ignores `evidence_digest` entirely. The validator prompt explicitly instructs the model not to return one. No parsing, validation, truncation, or forwarding of a model-provided digest remains in the resolution path.
-
-`_semantic_evaluation` now performs these operations in order:
-
-```python
-result = gl.eq_principle.prompt_comparative(...)
-result = self._enforce_policy(manifest, policy, result)
-result["evidence_digest"] = self._evidence_digest(manifest, request, policy, result)
-```
-
-`resolve_match` is the only storage assignment for `request["evidence_digest"]`, and it receives the value from `_semantic_evaluation`.
-
-### Canonical evidence encoding
-
-`_evidence_digest` creates a length-delimited encoding via `_canonical_fields` and `_canonical_list`. Length-prefixing removes delimiter ambiguity: values such as `a|bc` and `ab|c` cannot have the same serialized form.
-
-The evidence domain separator is `intentmesh:evidence:v1`. The commitment binds:
-
-- request ID and manifest ID;
-- intent, context, deadline, and policy ID;
-- policy score thresholds and input/output requirements;
-- manifest digest, summary, inputs, outputs, and constraints;
-- final verdict, score, and ordered reason-code vector.
-
-The final result is included only after deterministic policy enforcement, so the committed evidence matches the state that is actually stored.
-
-### SHA-256 implementation
-
-`_sha256` is a compact, portable SHA-256 implementation in the contract rather than an imported host crypto library. It produces exactly 64 lowercase hexadecimal characters and is tested against known SHA-256 vectors, including a multi-block input and UTF-8 text.
-
-The pre-existing manifest commitment was also upgraded from a non-cryptographic truncated text marker to SHA-256 over canonical manifest fields, with a distinct `intentmesh:manifest:v1` domain separator.
-
-### Deterministic policy enforcement
-
-The audit found that `min_score`, `review_band`, `require_inputs`, and `require_outputs` were previously mostly prompt guidance. `_enforce_policy` now makes those requirements binding in deterministic contract code:
-
-- an accepted score at or above `min_score` remains accepted;
-- an accepted score in the review band becomes `review` with `BELOW_ACCEPT_THRESHOLD`;
-- an accepted score below the review band becomes `reject` with `BELOW_REVIEW_THRESHOLD`;
-- a policy requiring absent manifest inputs or outputs yields `review` with a deterministic reason.
-
-### Storage ambiguity hardening
-
-Reason codes are now restricted to uppercase ASCII letters, digits, and underscores. Manifest list entries may not contain `|`, the storage packing delimiter. This prevents ambiguous round-tripping of state and keeps the canonical evidence representation auditable.
-
-## Regression coverage
-
-The direct test suite contains six passing tests:
-
-- normalization ignores a supplied 64-character model digest;
-- SHA-256 agrees with known values, including boundary and UTF-8 cases;
-- canonical evidence is stable for identical inputs and changes when evaluated data changes;
-- two otherwise identical validator outputs with conflicting `00…00` and `ff…ff` supplied digests yield the same contract-derived commitment;
-- score bands and required manifest fields are enforced by deterministic code;
-- invalid or delimiter-bearing reason codes are not retained.
-
-Command run:
-
-```bash
-pytest tests/direct -q
-```
-
-Result: `6 passed`.
-
-`genvm-lint check contracts/intent_mesh.py` completed its initial three lint checks. Full pinned-SDK loading was unavailable locally because the linter cache did not contain the referenced runner archive; this was a local tooling-cache limitation, not a contract diagnostic. The real Studionet deployment and consensus execution below provide runtime validation on the pinned contract dependency.
-
-## Real Studionet deployment
-
-The patched contract was deployed by the active unlocked account `0x8d4e752ae688c21ec7c7d4d8a232b5e0700dbf0f`.
+## Deployment
 
 | Item | Value |
 | --- | --- |
-| Contract address | `0x9b9136318D7D6aDe227D7B2C8ae7912C20ee3537` |
-| Deployment transaction | `0xecd9791b41c6dadee3a33a2e5a75d42fdf9815803cb02489d624aacf2de4402b` |
-| Deployment status | `ACCEPTED` / `MAJORITY_AGREE` |
+| Contract | [`0xD1A572B57DbdEAC2d7B09174E62c6585f3F00041`](https://explorer-studio.genlayer.com/address/0xD1A572B57DbdEAC2d7B09174E62c6585f3F00041) |
+| Deployment transaction | [`0x29d0e54f…c55b3b`](https://explorer-studio.genlayer.com/tx/0x29d0e54f546360223951a96dd97f6a5319ae7b907d15b0f2a7cb791a77c55b3b) |
+| Owner | `0x8d4e752ae688c21ec7c7d4d8a232b5e0700dbf0f` |
+| Result | `FINALIZED` / `MAJORITY_AGREE` |
 
-## End-to-end test evidence
+## Successful write-method verification
 
-### E2E 1 — publish and read a manifest
+| Method | Transaction | Verified effect |
+| --- | --- | --- |
+| `pause` | [`0x653de660…00290a`](https://explorer-studio.genlayer.com/tx/0x653de660f76a1458ea03ef179e246f648f1202f0e0045fec3f40a7998800290a) | Owner paused the contract. |
+| `unpause` | [`0xaed97bd2…e0266`](https://explorer-studio.genlayer.com/tx/0xaed97bd2dece31bb37034aad224bd047e38ee97e4d36c804fc586140251e0266) | Restored operation; final `is_paused=false`. |
+| `set_policy` | [`0x25b7b975…473e9`](https://explorer-studio.genlayer.com/tx/0x25b7b97583979b9fbe11974b2a28de1432864df655327af0c9be89d9118473e9) | Created `studionet_audit_2026`: minimum 82, review band 68, inputs and outputs required. |
+| `disable_policy` | [`0xc1a0d6a8…6c9e7`](https://explorer-studio.genlayer.com/tx/0xc1a0d6a8bbde7e85837e5ff44b544851d3d21a295465577a076a4ac3a146c9e7) | Disabled the temporary audit policy. |
+| `publish_manifest` | [`0x3308ce5e…ffb9c`](https://explorer-studio.genlayer.com/tx/0x3308ce5ea928f1c7b27a8fd36da6e9f226b613370ffa9b2c48b6ea67aa9ffb9c) | Published active source-verification manifest 1. |
+| `publish_manifest` | [`0xa3fd1469…da830`](https://explorer-studio.genlayer.com/tx/0xa3fd14696bd88cf47df91476fe85396bce8217657835e4f5887e1474f23da830) | Published revocation-lifecycle manifest 2. |
+| `publish_manifest` | [`0xde4e0959…328bc`](https://explorer-studio.genlayer.com/tx/0xde4e09599caec394e54f37d4a6ae720e1fe0a58d8efe2439e2325ca5893328bc) | Published time-bounded expiry manifest 3. |
+| `revoke_manifest` | [`0x168aa2a1…65e3b`](https://explorer-studio.genlayer.com/tx/0x168aa2a133f7f03de82cf6ba954a1b0e84e673319f8d19fc517bf3f15e265e3b) | Revoked manifest 2 with a concrete supersession reason. |
+| `expire_manifest` | [`0x74330d2f…f28ba`](https://explorer-studio.genlayer.com/tx/0x74330d2f99f4fadaf9ddb302ce663320c2132bbf813f51504e85dbcf9cff28ba) | Expired manifest 3 after deadline `1791212636`. |
+| `request_match` | [`0x2ccf6fd3…78c2b`](https://explorer-studio.genlayer.com/tx/0x2ccf6fd385df21965d034c078c02b34ecde535ce10ee47eba8a73130b8a78c2b) | Created deployment-verification request 1. |
+| `resolve_match` | [`0xff23df8d…ead04`](https://explorer-studio.genlayer.com/tx/0xff23df8d2b7643b6574f91b9271b8b0b8f21c6d293836727b10f3246e18ead04) | Resolved request 1 through validator consensus. |
+| `request_match` | [`0x2d6cae50…5d6b2`](https://explorer-studio.genlayer.com/tx/0x2d6cae5001a89009ba63a8b38aeb37992d23bb98ade11c030b1a68a84195d6b2) | Created cancellation-path request 2. |
+| `cancel_request` | [`0xa2813e11…8f953`](https://explorer-studio.genlayer.com/tx/0xa2813e11e3c8bfa40980c27003f3abee765dd3721f4345f5fe4e9464aa38f953) | Cancelled request 2 as its consumer. |
+| `request_match` | [`0x8c177723…fe6fc`](https://explorer-studio.genlayer.com/tx/0x8c177723820563831dbd1e18e7b236119233353a6409a0c548bb43f6ca8fe6fc) | Created request 3 with deadline `1791213023`. |
+| `expire_request` | [`0x0f28a7de…01e27`](https://explorer-studio.genlayer.com/tx/0x0f28a7de75f3f83b07537689b8199f75530cf7f9177d7edff31fbdfbaa001e27) | Expired request 3 after its deadline. |
 
-A concrete EUR supplier-payment capability manifest was published and read back.
+## Detailed records
 
-| Item | Value |
-| --- | --- |
-| Publish transaction | `0x333c5441b69e50102b8b7ec1d4c6c67da3280e9965d399ed1d743669acc27cc8` |
-| Result | `ACCEPTED` / `MAJORITY_AGREE` |
-| Manifest ID | `1` |
-| Capability ID | `intentmesh-payment-evidence-v1` |
-| Manifest digest | `023b8256d2304c7a525681e546d89073c0192e176157867892f34bb331fc4ec7` |
-| On-chain status | `active` |
+Manifest 1, `intentmesh-studionet-source-verification-v1`, requires the contract address, deployment transaction, chain ID, expected source rule, and verification timestamp. It returns source-match and policy-boundary results, the evidence digest, and Explorer URL. Its constraints require chain 61999, pre-comparison policy enforcement, no threshold-crossing equivalence, and contract-derived SHA-256. It is active with digest `52eeed185b6a2f8548fff358282affd00408dd1c4ad156082fd5d68b0b9395d1`.
 
-The stored manifest includes four declared inputs (`invoice_id`, `amount_eur`, `beneficiary_iban`, `approval_id`), three outputs, and the required approval and sanctions-screening constraints. The manifest digest is a 64-character SHA-256 value rather than the former truncated text marker.
+Manifest 2 is revoked with reason “Superseded lifecycle-only capability retired after successful replacement deployment and on-chain source verification on 2026-10-05.” Its digest is `7be63c130d65e786c1b0052e4428a76c095b229a4c9cd09a10e75cf9a1eb6cec`; `revoked_at=1791212647`.
 
-### E2E 2 — request, resolve through consensus, and reproduce the evidence digest
+Manifest 3 is expired. It was created at `1791212607`, had deadline `1791212636`, and has digest `d1c36e11393b3a7d17cb9154ec00fd41a279e9971f933a563284479817bebeec`.
 
-A detailed but explicitly fictional public-demo payment scenario was used to avoid placing personal, banking, production invoice, or production compliance data on a public chain.
+Request 1 contains the exact contract, deployment transaction, chain ID, source-read-back facts, and 79/84 regression evidence. Validators resolved it fail-closed as `review`, score `0`, reason `UNPARSEABLE`. The contract produced deterministic digest `e2a8b374b8eb0eca678df8af56272c204b61c6ad7b97b82751adde6e2d4f54c0`. Request 2 is `cancelled`. Request 3 is `expired`, with deadline `1791213023` and transition time `1791213048`.
 
-| Item | Value |
-| --- | --- |
-| Request transaction | `0xa126d0297034977a0c5839807174320d21488404b46563174286da3218896cc7` |
-| Resolve transaction | `0x066d1ad8b6538de9e58d114774055ac70c3081cc9c71beea3c07e86908136085` |
-| Resolve result | `ACCEPTED` / `MAJORITY_AGREE` |
-| Request ID | `1` |
-| Stored verdict | `review` |
-| Stored score | `0` |
-| Stored reason code | `UNPARSEABLE` |
-| Stored evidence digest | `41f641b208285b2a3c87e694b02d0bc7c5c718cd9a9d2e91bdc693da77bdf09d` |
-| Independently recomputed digest | `41f641b208285b2a3c87e694b02d0bc7c5c718cd9a9d2e91bdc693da77bdf09d` |
+## Failed attempts retained transparently
 
-The semantic result was fail-closed (`review`/`UNPARSEABLE`), but the resolution transaction executed successfully with a validator majority. Crucially, the independent post-read recomputation from the on-chain manifest, request, strict-policy parameters, and final evaluation matched the stored digest byte-for-byte.
+Transaction `0xaf862e21eef98ee1308aee972c5fea9957cb51f115d97ddade8a06604ed511d2` attempted request creation after its proposed deadline had elapsed, so no state was created. Transaction `0x4f7d19809e1b86306ab2de8907cd055ec5ed64135645ba2b5e82fb199d6427ba` consequently failed with `unknown request`. The successful request/expiry pair above replaced them; they are not counted as method verification.
 
-This directly demonstrates that the stored digest is not an arbitrary validator-provided value and is reproducible from canonical evaluated evidence.
+## Superseded deployment
 
-## Files changed
-
-- `contracts/intent_mesh.py` — deterministic commitments, canonical serialization, SHA-256, policy enforcement, and validation hardening.
-- `tests/direct/test_intent_mesh.py` — regression tests for the original flaw and related deterministic behavior.
-- `tests/conftest.py` — comparative-principle test stub accepts the principle argument.
-- `README.md` — protocol documentation now describes deterministic evidence commitments.
-- `artifacts/studionet-deployment.json` — machine-readable deployment and E2E evidence.
-
-## Conclusion
-
-The reported issue is resolved. A validator cannot choose the digest stored for a resolved request. The contract computes the commitment only after consensus and deterministic policy enforcement, from a canonical encoding of all material evidence. The deployed contract has executed this flow on real Studionet, and the resulting on-chain digest has been independently reproduced exactly.
+Contract `0x9b9136318D7D6aDe227D7B2C8ae7912C20ee3537` is historical only. It is excluded from current evidence because its source predates consequential-threshold comparative validation.

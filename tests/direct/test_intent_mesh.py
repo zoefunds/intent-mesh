@@ -65,6 +65,39 @@ def test_semantic_evaluation_ignores_model_digest_and_derives_its_own():
     assert conflicting_model_digest_result == result
 
 
+def test_comparative_validation_sees_policy_enforced_verdicts_at_score_boundaries():
+    contract = IntentMesh()
+    manifest = {"manifest_digest": "a" * 64, "summary": "Send money", "inputs": "amount", "outputs": "receipt", "constraints": "kyc"}
+    request = {"request_id": 7, "manifest_id": 3, "intent": "pay an invoice", "context": "approved", "deadline": 99, "policy_id": "strict"}
+    policy = {"min_score": 80, "review_band": 65, "require_inputs": True, "require_outputs": True}
+    original_prompt = gl.nondet.exec_prompt if hasattr(gl, "nondet") else None
+    original_comparative = gl.eq_principle.prompt_comparative
+    responses = iter([
+        {"verdict": "accept", "score": 79, "reason_codes": ["match"]},
+        {"verdict": "accept", "score": 84, "reason_codes": ["match"]},
+    ])
+    observed = {}
+
+    def compare(evaluate, **kwargs):
+        observed["lower"] = dict(evaluate())
+        observed["upper"] = dict(evaluate())
+        observed["principle"] = kwargs["principle"]
+        return dict(observed["upper"])
+
+    gl.nondet = type("Nondet", (), {"exec_prompt": staticmethod(lambda prompt: next(responses))})()
+    gl.eq_principle.prompt_comparative = compare
+    try:
+        contract._semantic_evaluation(manifest, request, policy)
+    finally:
+        gl.eq_principle.prompt_comparative = original_comparative
+        if original_prompt is not None:
+            gl.nondet.exec_prompt = original_prompt
+
+    assert observed["lower"] == {"verdict": "review", "score": 79, "reason_codes": ["BELOW_ACCEPT_THRESHOLD"]}
+    assert observed["upper"] == {"verdict": "accept", "score": 84, "reason_codes": ["MATCH"]}
+    assert "crosses review_band or min_score is never equivalent" in observed["principle"]
+
+
 def test_policy_thresholds_and_required_manifest_fields_are_contract_enforced():
     contract = IntentMesh()
     policy = {"min_score": 80, "review_band": 65, "require_inputs": True, "require_outputs": True}

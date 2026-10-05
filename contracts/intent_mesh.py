@@ -356,15 +356,23 @@ class IntentMesh(gl.Contract):
         def evaluate() -> Dict[str, Any]:
             prompt = self._build_prompt(manifest, request, policy)
             raw = gl.nondet.exec_prompt(prompt)
-            return self._normalize_llm_result(raw)
+            # Apply the deterministic policy before comparative validation.
+            # Otherwise two close scores can be considered equivalent even
+            # when they sit on opposite sides of a consequential boundary
+            # (for example strict-policy scores 79 and 84).
+            normalized = self._normalize_llm_result(raw)
+            return self._enforce_policy(manifest, policy, normalized)
 
         result = gl.eq_principle.prompt_comparative(
             evaluate,
             principle="The verdict must match exactly. The score may differ by at most 5 points. "
+            "Scores must also remain in the same policy band: below review_band, "
+            "at least review_band but below min_score, or at least min_score. "
+            "A score disagreement that crosses review_band or min_score is never equivalent, "
+            "even when the scores differ by 5 points or fewer. "
             "Reason codes must describe the same material compatibility decision. "
             "Do not return an evidence digest; the contract derives it deterministically.",
         )
-        result = self._enforce_policy(manifest, policy, result)
         result["evidence_digest"] = self._evidence_digest(manifest, request, policy, result)
         return result
 

@@ -1,37 +1,46 @@
 {
-  "network": "Studionet",
-  "chain_id": 61999,
-  "rpc": "https://studio.genlayer.com/api",
-  "deployer": "0x8d4e752ae688c21ec7c7d4d8a232b5e0700dbf0f",
-  "contract_address": "0x9b9136318D7D6aDe227D7B2C8ae7912C20ee3537",
-  "deployment": {
-    "transaction_hash": "0xecd9791b41c6dadee3a33a2e5a75d42fdf9815803cb02489d624aacf2de4402b",
-    "status": "ACCEPTED",
-    "consensus_result": "MAJORITY_AGREE"
+  "network": {"name": "Studionet", "chain_id": 61999, "rpc": "https://studio.genlayer.com/api", "explorer": "https://explorer-studio.genlayer.com"},
+  "contract": {
+    "address": "0xD1A572B57DbdEAC2d7B09174E62c6585f3F00041",
+    "owner": "0x8d4e752ae688c21ec7c7d4d8a232b5e0700dbf0f",
+    "explorer_url": "https://explorer-studio.genlayer.com/address/0xD1A572B57DbdEAC2d7B09174E62c6585f3F00041",
+    "deployment_transaction": "0x29d0e54f546360223951a96dd97f6a5319ae7b907d15b0f2a7cb791a77c55b3b",
+    "deployment_status": "FINALIZED",
+    "consensus_result": "MAJORITY_AGREE",
+    "deployed_at": "2026-10-05T14:50:03.538176+00:00",
+    "source_read_back": true,
+    "explorer_source_verified": true
   },
-  "e2e_tests": [
-    {
-      "name": "publish and read concrete payment-capability manifest",
-      "publish_transaction_hash": "0x333c5441b69e50102b8b7ec1d4c6c67da3280e9965d399ed1d743669acc27cc8",
-      "status": "ACCEPTED",
-      "consensus_result": "MAJORITY_AGREE",
-      "manifest_id": 1,
-      "capability_id": "intentmesh-payment-evidence-v1",
-      "manifest_digest": "023b8256d2304c7a525681e546d89073c0192e176157867892f34bb331fc4ec7"
-    },
-    {
-      "name": "request, validator-consensus resolution, read, and independently reproduce evidence commitment",
-      "request_transaction_hash": "0xa126d0297034977a0c5839807174320d21488404b46563174286da3218896cc7",
-      "resolve_transaction_hash": "0x066d1ad8b6538de9e58d114774055ac70c3081cc9c71beea3c07e86908136085",
-      "status": "ACCEPTED",
-      "consensus_result": "MAJORITY_AGREE",
-      "request_id": 1,
-      "verdict": "review",
-      "score": 0,
-      "reason_codes": ["UNPARSEABLE"],
-      "evidence_digest": "41f641b208285b2a3c87e694b02d0bc7c5c718cd9a9d2e91bdc693da77bdf09d",
-      "independently_recomputed_digest": "41f641b208285b2a3c87e694b02d0bc7c5c718cd9a9d2e91bdc693da77bdf09d",
-      "fixture_note": "The request is explicitly a public, fictional test fixture with no personal, banking, production invoice, or production compliance data."
-    }
-  ]
+  "write_method_verification": {
+    "pause": "0x653de660f76a1458ea03ef179e246f648f1202f0e0045fec3f40a7998800290a",
+    "unpause": "0xaed97bd2dece31bb37034aad224bd047e38ee97e4d36c804fc586140251e0266",
+    "set_policy": "0x25b7b97583979b9fbe11974b2a28de1432864df655327af0c9be89d9118473e9",
+    "disable_policy": "0xc1a0d6a8bbde7e85837e5ff44b544851d3d21a295465577a076a4ac3a146c9e7",
+    "publish_manifest": ["0x3308ce5ea928f1c7b27a8fd36da6e9f226b613370ffa9b2c48b6ea67aa9ffb9c", "0xa3fd14696bd88cf47df91476fe85396bce8217657835e4f5887e1474f23da830", "0xde4e09599caec394e54f37d4a6ae720e1fe0a58d8efe2439e2325ca5893328bc"],
+    "revoke_manifest": "0x168aa2a133f7f03de82cf6ba954a1b0e84e673319f8d19fc517bf3f15e265e3b",
+    "expire_manifest": "0x74330d2f99f4fadaf9ddb302ce663320c2132bbf813f51504e85dbcf9cff28ba",
+    "request_match": ["0x2ccf6fd385df21965d034c078c02b34ecde535ce10ee47eba8a73130b8a78c2b", "0x2d6cae5001a89009ba63a8b38aeb37992d23bb98ade11c030b1a68a84195d6b2", "0x8c177723820563831dbd1e18e7b236119233353a6409a0c548bb43f6ca8fe6fc"],
+    "resolve_match": "0xff23df8d2b7643b6574f91b9271b8b0b8f21c6d293836727b10f3246e18ead04",
+    "cancel_request": "0xa2813e11e3c8bfa40980c27003f3abee765dd3721f4345f5fe4e9464aa38f953",
+    "expire_request": "0x0f28a7de75f3f83b07537689b8199f75530cf7f9177d7edff31fbdfbaa001e27"
+  },
+  "final_state": {
+    "paused": false,
+    "policy": {"policy_id": "studionet_audit_2026", "min_score": 82, "review_band": 68, "require_inputs": true, "require_outputs": true, "enabled": false},
+    "manifests": [
+      {"manifest_id": 1, "capability_id": "intentmesh-studionet-source-verification-v1", "status": "active", "manifest_digest": "52eeed185b6a2f8548fff358282affd00408dd1c4ad156082fd5d68b0b9395d1", "created_at": 1791212562, "expires_at": 0},
+      {"manifest_id": 2, "capability_id": "intentmesh-revocation-lifecycle-audit-v1", "status": "revoked", "manifest_digest": "7be63c130d65e786c1b0052e4428a76c095b229a4c9cd09a10e75cf9a1eb6cec", "revoked_at": 1791212647, "revocation_reason": "Superseded lifecycle-only capability retired after successful replacement deployment and on-chain source verification on 2026-10-05."},
+      {"manifest_id": 3, "capability_id": "intentmesh-expiry-lifecycle-audit-v1", "status": "expired", "manifest_digest": "d1c36e11393b3a7d17cb9154ec00fd41a279e9971f933a563284479817bebeec", "created_at": 1791212607, "expires_at": 1791212636}
+    ],
+    "requests": [
+      {"request_id": 1, "status": "resolved", "verdict": "review", "score": 0, "reason_codes": ["UNPARSEABLE"], "evidence_digest": "e2a8b374b8eb0eca678df8af56272c204b61c6ad7b97b82751adde6e2d4f54c0", "created_at": 1791212721, "resolved_at": 1791212740},
+      {"request_id": 2, "status": "cancelled", "created_at": 1791212800, "resolved_at": 1791212818},
+      {"request_id": 3, "status": "expired", "deadline": 1791213023, "created_at": 1791212981, "resolved_at": 1791213048}
+    ]
+  },
+  "failed_execution_attempts": [
+    {"transaction": "0xaf862e21eef98ee1308aee972c5fea9957cb51f115d97ddade8a06604ed511d2", "method": "request_match", "reason": "The proposed deadline elapsed before execution; no request was created."},
+    {"transaction": "0x4f7d19809e1b86306ab2de8907cd055ec5ed64135645ba2b5e82fb199d6427ba", "method": "expire_request", "reason": "Request 3 did not yet exist because the preceding request creation failed."}
+  ],
+  "superseded_deployment": {"contract_address": "0x9b9136318D7D6aDe227D7B2C8ae7912C20ee3537", "transaction_hash": "0xecd9791b41c6dadee3a33a2e5a75d42fdf9815803cb02489d624aacf2de4402b"}
 }
